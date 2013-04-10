@@ -5,7 +5,7 @@
 package main
 
 import (
-	_ "bitbucket.org/errnoh/wde.canvas"
+	_ "github.com/errnoh/wde.canvas"
 	"fmt"
 	"github.com/skelterjohn/go.wde"
 	"image"
