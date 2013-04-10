@@ -75,6 +75,14 @@ function close() {
 
 }
 
+function getMousePos(canvas, evt) {
+    var rect = canvas.getBoundingClientRect();
+    return {
+        X: evt.clientX - rect.left,
+        Y: evt.clientY - rect.top
+    };
+}
+
 wdecanvas.onclick = function(e) {
     e.preventDefault();
 }
@@ -88,9 +96,7 @@ wdecanvas.onmousewheel = function(e) {
     e.preventDefault();
     var ev = new Object();
     ev.Type = "MouseDownEvent";
-    ev.Where = new Object();
-    ev.Where.X = e.offsetX;
-    ev.Where.Y = e.offsetY;
+    ev.Where = getMousePos(element, e);
     if (e.wheelDeltaY >= 0) {
         ev.Which = 8;
     } else {
@@ -104,10 +110,8 @@ wdecanvas.onmousedown = function(e) {
     e.preventDefault();
     var ev = new Object();
     ev.Type = "MouseDownEvent";
-    ev.Where = new Object();
     ev.Which = 1 << e.button;
-    ev.Where.X = e.offsetX;
-    ev.Where.Y = e.offsetY;   
+    ev.Where = getMousePos(element, e);
     websocket.send(JSON.stringify(ev));
 }
 
@@ -116,10 +120,8 @@ wdecanvas.onmouseup = function(e) {
     e.preventDefault();
     var ev = new Object();
     ev.Type = "MouseUpEvent";
-    ev.Where = new Object();
     ev.Which = 1 << e.button;
-    ev.Where.X = e.offsetX;
-    ev.Where.Y = e.offsetY;   
+    ev.Where = getMousePos(element, e);
     websocket.send(JSON.stringify(ev));
 }
 
@@ -138,9 +140,7 @@ wdecanvas.onmousemove = function(e) {
     e.preventDefault();
     var ev = new Object();
     ev.Type = "MouseMovedEvent";
-    ev.Where = new Object();
-    ev.Where.X = e.offsetX;
-    ev.Where.Y = e.offsetY;   
+    ev.Where = getMousePos(element, e);
     websocket.send(JSON.stringify(ev));
 }
 
@@ -171,9 +171,7 @@ wdecanvas.onmouseover = function(e) {
     e.preventDefault();
     var ev = new Object();
     ev.Type = "MouseEnteredEvent";
-    ev.Where = new Object();
-    ev.Where.X = e.offsetX;
-    ev.Where.Y = e.offsetY; 
+    ev.Where = getMousePos(element, e);
     // ev.From?
     websocket.send(JSON.stringify(ev));
 }
@@ -183,9 +181,7 @@ wdecanvas.onmouseout = function(e) {
     e.preventDefault();
     var ev = new Object();
     ev.Type = "MouseExitedEvent";
-    ev.Where = new Object();
-    ev.Where.X = e.offsetX;
-    ev.Where.Y = e.offsetY;
+    ev.Where = getMousePos(element, e);
     // ev.From?
     websocket.send(JSON.stringify(ev));
 }
