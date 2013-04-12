@@ -86,8 +86,16 @@ func (w *Window) SetIcon(icon image.Image) {}
 // NOTE: Not yet supported
 func (w *Window) SetIconName(name string) {}
 
-// NOTE: Not yet supported
-func (w *Window) SetSize(width, height int) {}
+func (w *Window) SetSize(width, height int) {
+	var data struct {
+		Type          string
+		Width, Height int
+	}
+	data.Type, data.Width, data.Height = "resize", width, height
+	websocket.JSON.Send(w.ws, data)
+
+	w.newBuffer(width, height)
+}
 
 // NOTE: Not yet supported
 func (w *Window) SetTitle(title string) {}
@@ -98,4 +106,12 @@ func (w *Window) Show() {}
 // Returns width and height of the canvas.
 func (w *Window) Size() (width, height int) {
 	return w.Screen().Bounds().Dx(), w.Screen().Bounds().Dy()
+}
+
+// If the Window is resized we need new buffer since the size changes.
+// To minimize losses as much of the old screen is copied to new buffer as possible.
+func (w *Window) newBuffer(width, height int) {
+	oldbuf := mainwindow.buf
+	mainwindow.buf = &RGBA{image.NewRGBA(image.Rect(0, 0, width, height))}
+	mainwindow.Screen().CopyRGBA(oldbuf.RGBA, oldbuf.Bounds())
 }

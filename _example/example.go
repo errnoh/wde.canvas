@@ -5,8 +5,8 @@
 package main
 
 import (
-	_ "github.com/errnoh/wde.canvas"
 	"fmt"
+	_ "github.com/errnoh/wde.canvas"
 	"github.com/skelterjohn/go.wde"
 	"image"
 	"image/color"

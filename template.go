@@ -24,17 +24,6 @@ var rootTemplate = template.Must(template.New("root").Parse(`<!DOCTYPE html>
 
 <script type="text/javascript">
 
-function onMessage(e) {
-    start = Date.now();
-    var byteArray = new Uint8ClampedArray(e.data);
-    flush(byteArray);
-    console.log("done: " + (Date.now()-start));
-}
-
-function onClose(e) {
-    console.log("closed");
-}
-
 websocket = new WebSocket("ws://{{.Address}}/socket");
 websocket.binaryType = 'arraybuffer';
 websocket.onmessage = onMessage;
@@ -44,16 +33,45 @@ var element = document.getElementById("wdecanvas");
 var c = element.getContext("2d");
 
 var locked = false;
+var bufsize = element.width * element.height * 4;
+
+function onMessage(e) {
+    start = Date.now();
+    if (e.data.byteLength == null) {
+        // Data is not bytearray
+        var data = JSON.parse(e.data);
+        handle(data);
+        return;
+    }
+    var byteArray = new Uint8ClampedArray(e.data);
+    flush(byteArray);
+    console.log("done: " + (Date.now()-start));
+}
+
+function handle(data) {
+    switch (data.Type) {
+    case "resize":
+        setSize(data.Width, data.Height);
+    case "title":
+    case "icon":
+    case "iconname":
+    }
+}
+
+function onClose(e) {
+    console.log("closed");
+}
 
 function setSize(width, height) {
     if (!locked) {
-        canvas1.width = width;
-        canvas1.height = height;
+        element.width = width;
+        element.height = height;
+        var bufsize = element.width * element.height * 4;
     }
 }
 
 function size() {
-    return [canvas1.width, canvas1.height];
+    return [element.width, element.height];
 }
 
 function lockSize(bool) {
