@@ -11,6 +11,7 @@ import (
 type templateVars struct {
 	Address       string
 	Width, Height int
+	LockSize      bool
 }
 
 var rootTemplate = template.Must(template.New("root").Parse(`<!DOCTYPE html>
@@ -32,7 +33,7 @@ websocket.onclose = onClose;
 var element = document.getElementById("wdecanvas");
 var c = element.getContext("2d");
 
-var locked = false;
+var locked = {{.LockSize}};
 var bufsize = element.width * element.height * 4;
 
 function onMessage(e) {
@@ -53,12 +54,16 @@ function handle(data) {
     case "resize":
         setSize(data.Width, data.Height);
     case "title":
+        title(data.Title);
     case "icon":
     case "iconname":
+    case "locksize":
+        lockSize(data.Bool);
     }
 }
 
 function onClose(e) {
+    close();
     console.log("closed");
 }
 
@@ -74,8 +79,9 @@ function size() {
     return [element.width, element.height];
 }
 
-function lockSize(bool) {
-    locked = bool;
+function lockSize(value) {
+    console.log(locked, value);
+    locked = value;
 }
 
 function title(s) {

@@ -54,6 +54,8 @@ func NewWindow(width, height int) (w wde.Window, err error) {
 }
 
 func (w *Window) Close() (err error) {
+	w.ws.Close()
+
 	w.end <- struct{}{}
 	return nil
 }
@@ -77,8 +79,15 @@ func (w *Window) Screen() (im wde.Image) {
 	return w.buf
 }
 
-// NOTE: Not yet supported
-func (w *Window) LockSize(lock bool) {}
+func (w *Window) LockSize(lock bool) {
+	var data struct {
+		Type string
+		Bool bool
+	}
+	tempvars.LockSize = lock
+	data.Type, data.Bool = "locksize", lock
+	w.send(data)
+}
 
 // NOTE: Not yet supported
 func (w *Window) SetIcon(icon image.Image) {}
@@ -87,18 +96,29 @@ func (w *Window) SetIcon(icon image.Image) {}
 func (w *Window) SetIconName(name string) {}
 
 func (w *Window) SetSize(width, height int) {
+	if tempvars.LockSize {
+		return
+	}
+
 	var data struct {
 		Type          string
 		Width, Height int
 	}
 	data.Type, data.Width, data.Height = "resize", width, height
-	websocket.JSON.Send(w.ws, data)
+	tempvars.Width, tempvars.Height = width, height
+	w.send(data)
 
 	w.newBuffer(width, height)
 }
 
-// NOTE: Not yet supported
-func (w *Window) SetTitle(title string) {}
+func (w *Window) SetTitle(title string) {
+	var data struct {
+		Type  string
+		Title string
+	}
+	data.Type, data.Title = "title", title
+	w.send(data)
+}
 
 // NOTE: Doesn't do anything yet.
 func (w *Window) Show() {}
@@ -114,4 +134,10 @@ func (w *Window) newBuffer(width, height int) {
 	oldbuf := mainwindow.buf
 	mainwindow.buf = &RGBA{image.NewRGBA(image.Rect(0, 0, width, height))}
 	mainwindow.Screen().CopyRGBA(oldbuf.RGBA, oldbuf.Bounds())
+}
+
+func (w *Window) send(data interface{}) {
+	if w.ws != nil {
+		websocket.JSON.Send(w.ws, data)
+	}
 }

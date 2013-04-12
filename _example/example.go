@@ -65,6 +65,8 @@ loop:
 			} else {
 				randomize()
 			}
+		case wde.ResizeEvent:
+			dw.SetSize(e.Width, e.Height)
 		case wde.MouseMovedEvent:
 			mousex, mousey = e.Where.X, e.Where.Y
 		case wde.CloseEvent:
