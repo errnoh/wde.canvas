@@ -10,6 +10,7 @@ import (
 	"image"
 	"image/draw"
 	"net/http"
+	"time"
 )
 
 type RGBA struct {
@@ -53,6 +54,21 @@ func NewWindow(width, height int) (w wde.Window, err error) {
 	return mainwindow, nil
 }
 
+var fpscount int
+
+func (w *Window) FPS() <-chan int {
+	c := make(chan int)
+	ticker := time.Tick(time.Second)
+	go func() {
+		for {
+			fpscount = 0
+			<-ticker
+			c <- fpscount
+		}
+	}()
+	return c
+}
+
 func (w *Window) Close() (err error) {
 	w.ws.Close()
 
@@ -64,14 +80,14 @@ func (w *Window) EventChan() (events <-chan interface{}) {
 	return w.events
 }
 
-// XXX: Flushing too fast might cause pipes to get stuck.
-//
-// Workaround: Limit FPS.
-//
-// FIX: Possibly send JSON response after each frame to signal ready
 func (w *Window) FlushImage(bounds ...image.Rectangle) {
 	if w.ws != nil {
 		websocket.Message.Send(w.ws, w.buf.Pix)
+		<-tick
+		fpscount++
+	} else {
+		// NOTE: Prevent locking in busy wait when there's no client available
+		time.Sleep(time.Millisecond * 500)
 	}
 }
 

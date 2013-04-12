@@ -46,6 +46,7 @@ function onMessage(e) {
     }
     var byteArray = new Uint8ClampedArray(e.data);
     flush(byteArray);
+    websocket.send("ok");
     console.log("done: " + (Date.now()-start));
 }
 

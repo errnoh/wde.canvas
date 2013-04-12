@@ -6,13 +6,12 @@ package main
 
 import (
 	"fmt"
-	_ "github.com/errnoh/wde.canvas"
+	"github.com/errnoh/wde.canvas"
 	"github.com/skelterjohn/go.wde"
 	"image"
 	"image/color"
 	"image/draw"
 	"math/rand"
-	"time"
 )
 
 const (
@@ -50,7 +49,21 @@ func run() {
 
 	events := dw.EventChan()
 	go listen(events)
+	go fps()
 	render()
+}
+
+func fps() {
+	w, ok := dw.(*canvas.Window)
+	if ok {
+		go func() {
+			c := w.FPS()
+			for {
+				w, h := dw.Size()
+				fmt.Printf("%dx%d: %d FPS\n", w, h, <-c)
+			}
+		}()
+	}
 }
 
 func listen(c <-chan interface{}) {
@@ -83,9 +96,9 @@ func render() {
 		draw.DrawMask(dw.Screen(), dw.Screen().Bounds(), &image.Uniform{color.RGBA{r, g, b, a}}, image.ZP, &circle{image.Point{mousex, mousey}, radius}, image.ZP, draw.Over)
 		dw.FlushImage()
 		select {
-		case <-time.After(time.Second / 25):
 		case <-done:
 			return
+		default:
 		}
 	}
 }

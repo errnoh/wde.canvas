@@ -15,6 +15,7 @@ const listenAddr = "localhost:12500"
 var (
 	mainwindow = new(Window)
 	tempvars   = new(templateVars)
+	tick       = make(chan struct{})
 )
 
 func init() {
@@ -43,6 +44,10 @@ func listen(ws *websocket.Conn) {
 			println(err.Error())
 			ws.Close()
 			return
+		}
+		if string(buf[:n]) == "ok" {
+			tick <- struct{}{}
+			continue
 		}
 		forwardEvent(buf[:n])
 	}
