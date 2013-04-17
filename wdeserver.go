@@ -55,5 +55,6 @@ func listen(ws *websocket.Conn) {
 }
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
+	tempvars.Address = r.Host
 	rootTemplate.Execute(w, tempvars)
 }
