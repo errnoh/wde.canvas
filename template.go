@@ -12,6 +12,7 @@ type templateVars struct {
 	Address       string
 	Width, Height int
 	LockSize      bool
+	Title         string
 }
 
 var rootTemplate = template.Must(template.New("root").Parse(`<!DOCTYPE html>
@@ -24,6 +25,8 @@ var rootTemplate = template.Must(template.New("root").Parse(`<!DOCTYPE html>
 </body>
 
 <script type="text/javascript">
+
+document.title = {{.Title}};
 
 websocket = new WebSocket("ws://{{.Address}}/socket");
 websocket.binaryType = 'arraybuffer';
@@ -38,6 +41,7 @@ var bufsize = element.width * element.height * 4;
 
 function onMessage(e) {
     start = Date.now();
+    console.log(e.data.length);
     if (e.data.byteLength == null) {
         // Data is not bytearray
         var data = JSON.parse(e.data);
@@ -90,8 +94,9 @@ function title(s) {
 }
 
 function flush(arr) {
-    imageData = c.createImageData(element.width, element.height); // Luoko aina uuden?
-    //imageData = c.getImageData(0, 0, element.width, element.height);
+    //imageData = c.createImageData(element.width, element.height); // Luoko aina uuden?
+    imageData = c.getImageData(0, 0, element.width, element.height);
+
     imageData.data.set(arr, 0);
     c.putImageData(imageData, 0, 0);
 }

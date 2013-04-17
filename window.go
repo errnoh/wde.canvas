@@ -8,6 +8,7 @@ import (
 	"code.google.com/p/go.net/websocket"
 	"github.com/skelterjohn/go.wde"
 	"image"
+	"image/color"
 	"image/draw"
 	"net/http"
 	"time"
@@ -17,7 +18,21 @@ type RGBA struct {
 	*image.RGBA
 }
 
+func (img RGBA) Set(x, y int, c color.Color) {
+	// XXX: draw.Draw is not using image.RGBA but canvas.RGBA and Set()
+	// Because of this it's probably still faster to do manual buffering and CopyRGBA it
+	mainwindow.deltaUpdate(x, y)
+	img.RGBA.Set(x, y, c)
+}
+
+func (img RGBA) SetRGBA(x, y int, c color.RGBA) {
+	mainwindow.deltaUpdate(x, y)
+	img.RGBA.SetRGBA(x, y, c)
+}
+
 func (img RGBA) CopyRGBA(src *image.RGBA, bounds image.Rectangle) {
+	mainwindow.deltaUpdate(bounds.Min.X, bounds.Min.Y)
+	mainwindow.deltaUpdate(bounds.Max.X-1, bounds.Max.Y-1)
 	draw.Draw(img.RGBA, bounds, src, image.ZP, draw.Src)
 }
 
@@ -30,6 +45,7 @@ type Window struct {
 	buf    *RGBA
 	events chan interface{}
 	end    chan struct{}
+	delta  image.Rectangle // TODO: new connection == delta whole screen
 
 	started bool
 }
@@ -43,6 +59,9 @@ func NewWindow(width, height int) (w wde.Window, err error) {
 		mainwindow.buf = &RGBA{image.NewRGBA(image.Rect(0, 0, width, height))}
 		mainwindow.events = make(chan interface{})
 		mainwindow.end = make(chan struct{})
+		mainwindow.delta = mainwindow.Screen().Bounds()
+		mainwindow.delta.Max.X--
+		mainwindow.delta.Max.Y--
 
 		http.HandleFunc("/", rootHandler)
 		http.Handle("/socket", websocket.Handler(socketHandler))
@@ -82,8 +101,9 @@ func (w *Window) EventChan() (events <-chan interface{}) {
 
 func (w *Window) FlushImage(bounds ...image.Rectangle) {
 	if w.ws != nil {
-		websocket.Message.Send(w.ws, w.buf.Pix)
 		<-tick
+		websocket.Message.Send(w.ws, w.deltaSlice())
+		w.delta.Min.X, w.delta.Min.Y, w.delta.Max.X, w.delta.Max.Y = -1, -1, -1, -1
 		fpscount++
 	} else {
 		// NOTE: Prevent locking in busy wait when there's no client available
@@ -133,6 +153,7 @@ func (w *Window) SetTitle(title string) {
 		Title string
 	}
 	data.Type, data.Title = "title", title
+	tempvars.Title = title
 	w.send(data)
 }
 
@@ -156,4 +177,39 @@ func (w *Window) send(data interface{}) {
 	if w.ws != nil {
 		websocket.JSON.Send(w.ws, data)
 	}
+}
+
+func (w *Window) deltaUpdate(x, y int) {
+	if w.delta.Min.X == -1 || w.delta.Max.X == -1 {
+		w.delta.Min.X, w.delta.Min.Y, w.delta.Max.X, w.delta.Max.Y = x, y, x, y
+		return
+	}
+	// NOTE: Doesn't check if x,y is inside w.Bounds rectangle.
+	// NOTE: Could also support ... syntax with image.Point
+	// Also consider using only the row and skip column to reduce overhead
+	if y <= w.delta.Min.Y {
+		if x < w.delta.Min.X {
+			w.delta.Min.Y = y
+			w.delta.Min.X = x
+		}
+	}
+	if y >= w.delta.Max.Y {
+		w.delta.Max.Y = y
+		w.delta.Max.X = x
+		if x > w.delta.Max.X {
+			w.delta.Max.Y = y
+			w.delta.Max.X = x
+		}
+	}
+}
+
+func (w *Window) deltaSlice() []uint8 {
+
+	start := w.buf.PixOffset(w.delta.Min.X, w.delta.Min.Y)
+	end := w.buf.PixOffset(w.delta.Max.X, w.delta.Max.Y)
+	if end > len(w.buf.Pix) {
+		end = len(w.buf.Pix)
+	}
+	start = start // debug
+	return w.buf.Pix[0:end]
 }

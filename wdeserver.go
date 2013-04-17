@@ -32,6 +32,7 @@ func init() {
 func socketHandler(ws *websocket.Conn) {
 	mainwindow.ws = ws
 	go listen(ws)
+	tick <- struct{}{}
 	<-mainwindow.end
 }
 

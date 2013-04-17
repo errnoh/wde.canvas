@@ -60,7 +60,7 @@ func fps() {
 			c := w.FPS()
 			for {
 				w, h := dw.Size()
-				fmt.Printf("%dx%d: %d FPS\n", w, h, <-c)
+				dw.SetTitle(fmt.Sprintf("%dx%d: %d FPS\n", w, h, <-c))
 			}
 		}()
 	}
