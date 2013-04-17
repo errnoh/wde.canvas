@@ -12,6 +12,7 @@ import (
 	"image/color"
 	"image/draw"
 	"math/rand"
+	"time"
 )
 
 const (
@@ -27,6 +28,10 @@ var (
 	dw   wde.Window
 	done = make(chan struct{})
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 
 func main() {
 	go run()
@@ -93,8 +98,9 @@ loop:
 
 func render() {
 	for {
-		draw.DrawMask(dw.Screen(), dw.Screen().Bounds(), &image.Uniform{color.RGBA{r, g, b, a}}, image.ZP, &circle{image.Point{mousex, mousey}, radius}, image.ZP, draw.Over)
-		dw.FlushImage()
+		crcl := &circle{image.Point{mousex, mousey}, radius}
+		draw.DrawMask(dw.Screen(), dw.Screen().Bounds(), &image.Uniform{color.RGBA{r, g, b, a}}, image.ZP, crcl, image.ZP, draw.Over)
+		dw.FlushImage(crcl.Bounds()) // Render only the needed portions to get more FPS
 		select {
 		case <-done:
 			return

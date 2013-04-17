@@ -8,7 +8,6 @@ import (
 	"code.google.com/p/go.net/websocket"
 	"github.com/skelterjohn/go.wde"
 	"image"
-	"image/color"
 	"image/draw"
 	"net/http"
 	"time"
@@ -18,23 +17,7 @@ type RGBA struct {
 	*image.RGBA
 }
 
-func (img RGBA) Set(x, y int, c color.Color) {
-	// NOTE: Only needed because deltaUpdate()
-	// XXX: draw.Draw is not using image.RGBA but canvas.RGBA and Set()
-	// Because of this it's probably still faster to do manual buffering and CopyRGBA it
-	mainwindow.deltaUpdate(x, y)
-	img.RGBA.Set(x, y, c)
-}
-
-func (img RGBA) SetRGBA(x, y int, c color.RGBA) {
-	// NOTE: Only needed because deltaUpdate()
-	mainwindow.deltaUpdate(x, y)
-	img.RGBA.SetRGBA(x, y, c)
-}
-
 func (img RGBA) CopyRGBA(src *image.RGBA, bounds image.Rectangle) {
-	mainwindow.deltaUpdate(bounds.Min.X, bounds.Min.Y)
-	mainwindow.deltaUpdate(bounds.Max.X-1, bounds.Max.Y-1)
 	draw.Draw(img.RGBA, bounds, src, image.ZP, draw.Src)
 }
 
@@ -47,7 +30,6 @@ type Window struct {
 	buf    *RGBA
 	events chan interface{}
 	end    chan struct{}
-	delta  image.Rectangle // TODO: new connection == delta whole screen
 
 	started bool
 }
@@ -61,9 +43,6 @@ func NewWindow(width, height int) (w wde.Window, err error) {
 		mainwindow.buf = &RGBA{image.NewRGBA(image.Rect(0, 0, width, height))}
 		mainwindow.events = make(chan interface{})
 		mainwindow.end = make(chan struct{})
-		mainwindow.delta = mainwindow.Screen().Bounds()
-		mainwindow.delta.Max.X--
-		mainwindow.delta.Max.Y--
 
 		http.HandleFunc("/", rootHandler)
 		http.Handle("/socket", websocket.Handler(socketHandler))
@@ -103,14 +82,20 @@ func (w *Window) EventChan() (events <-chan interface{}) {
 
 func (w *Window) FlushImage(bounds ...image.Rectangle) {
 	if w.ws != nil {
-		<-tick
-		pos, delta := w.deltaSlice()
-		w.send(struct {
-			Type string
-			Pos  int
-		}{"pos", pos})
-		websocket.Message.Send(w.ws, delta)
-		w.delta.Min.X, w.delta.Min.Y, w.delta.Max.X, w.delta.Max.Y = -1, -1, -1, -1
+		if bounds == nil {
+			bounds = append(bounds, mainwindow.Screen().Bounds())
+		}
+		for _, r := range bounds {
+			// NOTE: Would also be possible to create rgba images of those parts and send / update only those parts.
+			// 		 context.putImageData(imgData,x,y)
+			<-tick
+			pos, delta := w.deltaSlice(r)
+			w.send(struct {
+				Type string
+				Pos  int
+			}{"pos", pos})
+			websocket.Message.Send(w.ws, delta)
+		}
 		fpscount++
 	} else {
 		// NOTE: Prevent locking in busy wait when there's no client available
@@ -186,34 +171,13 @@ func (w *Window) send(data interface{}) {
 	}
 }
 
-func (w *Window) deltaUpdate(x, y int) {
-	if w.delta.Min.X == -1 || w.delta.Max.X == -1 {
-		w.delta.Min.X, w.delta.Min.Y, w.delta.Max.X, w.delta.Max.Y = x, y, x, y
-		return
+func (w *Window) deltaSlice(r image.Rectangle) (int, []uint8) {
+	// XXX: buf.Pix might need a mutex, can clash with newBuffer
+	start := w.buf.PixOffset(r.Min.X, r.Min.Y)
+	end := w.buf.PixOffset(r.Max.X, r.Max.Y)
+	if start < 0 {
+		start = 0
 	}
-	// NOTE: Doesn't check if x,y is inside w.Bounds rectangle.
-	// NOTE: Could also support ... syntax with image.Point
-	// Also consider using only the row and skip column to reduce overhead
-	if y <= w.delta.Min.Y {
-		if x < w.delta.Min.X {
-			w.delta.Min.Y = y
-			w.delta.Min.X = x
-		}
-	}
-	if y >= w.delta.Max.Y {
-		w.delta.Max.Y = y
-		w.delta.Max.X = x
-		if x > w.delta.Max.X {
-			w.delta.Max.Y = y
-			w.delta.Max.X = x
-		}
-	}
-}
-
-func (w *Window) deltaSlice() (int, []uint8) {
-
-	start := w.buf.PixOffset(w.delta.Min.X, w.delta.Min.Y)
-	end := w.buf.PixOffset(w.delta.Max.X, w.delta.Max.Y)
 	if end > len(w.buf.Pix) {
 		end = len(w.buf.Pix)
 	}

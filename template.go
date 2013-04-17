@@ -41,7 +41,7 @@ var bufsize = element.width * element.height * 4;
 var offset = 0;
 
 function onMessage(e) {
-    start = Date.now();
+    //start = Date.now();
     if (e.data.byteLength == null) {
         // Data is not bytearray
         var data = JSON.parse(e.data);
@@ -55,7 +55,7 @@ function onMessage(e) {
     var byteArray = new Uint8ClampedArray(e.data);
     flush(byteArray);
     websocket.send("ok");
-    console.log("done: " + (Date.now()-start));
+    //console.log("done: " + (Date.now()-start));
 }
 
 function handle(data) {
@@ -89,7 +89,6 @@ function size() {
 }
 
 function lockSize(value) {
-    console.log(locked, value);
     locked = value;
 }
 
@@ -98,9 +97,13 @@ function title(s) {
 }
 
 function flush(arr) {
-    //imageData = c.createImageData(element.width, element.height); // Luoko aina uuden?
-    imageData = c.getImageData(0, 0, element.width, element.height);
-
+    var imageData;
+    if (arr.length == bufsize && offset == 0) {
+        // Faster full screen update
+        imageData = c.createImageData(element.width, element.height);
+    } else {
+        imageData = c.getImageData(0, 0, element.width, element.height);
+    }
     imageData.data.set(arr, offset);
     c.putImageData(imageData, 0, 0);
 }
