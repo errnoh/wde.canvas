@@ -38,13 +38,17 @@ var c = element.getContext("2d");
 
 var locked = {{.LockSize}};
 var bufsize = element.width * element.height * 4;
+var offset = 0;
 
 function onMessage(e) {
     start = Date.now();
-    console.log(e.data.length);
     if (e.data.byteLength == null) {
         // Data is not bytearray
         var data = JSON.parse(e.data);
+        if (data.Type == "pos") {
+            offset = data.Pos;
+            return;
+        }
         handle(data);
         return;
     }
@@ -97,7 +101,7 @@ function flush(arr) {
     //imageData = c.createImageData(element.width, element.height); // Luoko aina uuden?
     imageData = c.getImageData(0, 0, element.width, element.height);
 
-    imageData.data.set(arr, 0);
+    imageData.data.set(arr, offset);
     c.putImageData(imageData, 0, 0);
 }
 

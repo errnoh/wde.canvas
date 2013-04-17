@@ -19,6 +19,7 @@ type RGBA struct {
 }
 
 func (img RGBA) Set(x, y int, c color.Color) {
+	// NOTE: Only needed because deltaUpdate()
 	// XXX: draw.Draw is not using image.RGBA but canvas.RGBA and Set()
 	// Because of this it's probably still faster to do manual buffering and CopyRGBA it
 	mainwindow.deltaUpdate(x, y)
@@ -26,6 +27,7 @@ func (img RGBA) Set(x, y int, c color.Color) {
 }
 
 func (img RGBA) SetRGBA(x, y int, c color.RGBA) {
+	// NOTE: Only needed because deltaUpdate()
 	mainwindow.deltaUpdate(x, y)
 	img.RGBA.SetRGBA(x, y, c)
 }
@@ -102,7 +104,12 @@ func (w *Window) EventChan() (events <-chan interface{}) {
 func (w *Window) FlushImage(bounds ...image.Rectangle) {
 	if w.ws != nil {
 		<-tick
-		websocket.Message.Send(w.ws, w.deltaSlice())
+		pos, delta := w.deltaSlice()
+		w.send(struct {
+			Type string
+			Pos  int
+		}{"pos", pos})
+		websocket.Message.Send(w.ws, delta)
 		w.delta.Min.X, w.delta.Min.Y, w.delta.Max.X, w.delta.Max.Y = -1, -1, -1, -1
 		fpscount++
 	} else {
@@ -203,13 +210,12 @@ func (w *Window) deltaUpdate(x, y int) {
 	}
 }
 
-func (w *Window) deltaSlice() []uint8 {
+func (w *Window) deltaSlice() (int, []uint8) {
 
 	start := w.buf.PixOffset(w.delta.Min.X, w.delta.Min.Y)
 	end := w.buf.PixOffset(w.delta.Max.X, w.delta.Max.Y)
 	if end > len(w.buf.Pix) {
 		end = len(w.buf.Pix)
 	}
-	start = start // debug
-	return w.buf.Pix[0:end]
+	return start, w.buf.Pix[start:end]
 }
